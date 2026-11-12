@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vigía OCR · demo</title>
+<meta name="description" content="Demo de Vigía OCR: lecturas reales de una cadena OCR con preprocesado, varios motores y votación.">
+<style>
+:root{
+  --fondo:#f7f5f0;--superficie:#ffffff;--tinta:#1d2430;--suave:#5d6776;--borde:#e2ddd3;
+  --marca:#0f766e;--marca-suave:#d5efec;--ok:#15803d;--mal:#b42318;--aviso:#a15c07;
+  --barra:#0f766e;--barra-fondo:#ebe7df;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --fondo:#11151b;--superficie:#181e26;--tinta:#e7ebf0;--suave:#9aa5b4;--borde:#2a323d;
+  --marca:#2dd4bf;--marca-suave:#123b38;--ok:#4ade80;--mal:#f87171;--aviso:#fbbf24;
+  --barra:#2dd4bf;--barra-fondo:#252d38;
+}}
+:root[data-theme="dark"]{
+  --fondo:#11151b;--superficie:#181e26;--tinta:#e7ebf0;--suave:#9aa5b4;--borde:#2a323d;
+  --marca:#2dd4bf;--marca-suave:#123b38;--ok:#4ade80;--mal:#f87171;--aviso:#fbbf24;
+  --barra:#2dd4bf;--barra-fondo:#252d38;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--tinta);
+  font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:clamp(28px,5vw,40px);margin:0 0 8px;letter-spacing:-.02em}
+h2{font-size:22px;margin:48px 0 12px}
+p{margin:0 0 12px}
+.lema{font-size:18px;color:var(--suave);max-width:70ch}
+.historia{background:var(--superficie);border:1px solid var(--borde);border-left:4px solid var(--marca);
+  border-radius:10px;padding:16px 20px;margin-top:20px;max-width:80ch}
+.aviso{font-size:13px;color:var(--suave)}
+.cadena{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.cadena span{background:var(--marca-suave);color:var(--tinta);border-radius:999px;padding:4px 12px;font-size:14px}
+.galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.miniatura{background:var(--superficie);border:2px solid var(--borde);border-radius:8px;padding:6px;
+  cursor:pointer;text-align:left;color:inherit;font:inherit}
+.miniatura img{width:100%;height:auto;display:block;border-radius:4px;image-rendering:auto}
+.miniatura small{display:block;margin-top:4px;color:var(--suave);font-size:12px}
+.miniatura[aria-pressed="true"]{border-color:var(--marca)}
+.detalle{background:var(--superficie);border:1px solid var(--borde);border-radius:12px;padding:20px;margin-top:16px}
+.cabecera{display:flex;flex-wrap:wrap;gap:20px;align-items:center}
+.cabecera img{width:min(360px,100%);border:1px solid var(--borde);border-radius:6px}
+.veredicto{font-family:ui-monospace,Consolas,monospace;font-size:28px;font-weight:700;letter-spacing:.08em}
+.etiqueta{display:inline-block;border-radius:6px;padding:2px 8px;font-size:13px;font-weight:600}
+.etiqueta.ok{color:var(--ok);border:1px solid var(--ok)}
+.etiqueta.mal{color:var(--mal);border:1px solid var(--mal)}
+.etiqueta.aviso{color:var(--aviso);border:1px solid var(--aviso)}
+.etapas{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:16px 0}
+.etapas figure{margin:0}
+.etapas img{width:100%;border:1px solid var(--borde);border-radius:4px;background:#fff}
+.etapas figcaption{font-size:12px;color:var(--suave);font-family:ui-monospace,Consolas,monospace}
+.tabla{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:6px 10px;border-bottom:1px solid var(--borde);text-align:left;white-space:nowrap}
+th{color:var(--suave);font-weight:600}
+td.mono{font-family:ui-monospace,Consolas,monospace}
+.barra{background:var(--barra-fondo);border-radius:4px;height:10px;min-width:120px;position:relative}
+.barra i{position:absolute;inset:0 auto 0 0;background:var(--barra);border-radius:4px}
+.num{font-variant-numeric:tabular-nums;text-align:right}
+footer{margin-top:56px;color:var(--suave);font-size:14px}
+a{color:var(--marca)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Vigía OCR</h1>
+  <p class="lema">Un bot RPA que consulta un portal público donde el estado de cada proceso se
+    publica como <strong>imagen ruidosa</strong>, la lee con varios motores OCR, vota, valida el
+    dígito de verificación y guarda el resultado en SQL Server.</p>
+
+  <div class="historia">
+    <p>Cada mañana, Marta Lucía, analista de la <em>Cooperativa La Alcancía de Puerto
+      Candela</em>, abría el portal del <em>Juzgado Promiscuo de Puerto Candela</em> y revisaba
+      uno por uno los procesos de cobro. El juzgado publica el estado como una imagen con rayas
+      y puntos, "para que no entren robots". Vigía es ese robot: a las 6:00 a. m. ya dejó el
+      estado de cada radicado en la base de datos, y cuando no está seguro de una lectura, lo
+      dice en vez de inventar.</p>
+    <p class="aviso">Puerto Candela, la cooperativa y todas las personas son ficticias.</p>
+  </div>
+
+  <h2>La cadena de lectura</h2>
+  <div class="cadena">
+    <span>1 · Selenium abre el portal y recorta la imagen</span>
+    <span>2 · Cinco variantes de preprocesado</span>
+    <span>3 · Varios motores OCR</span>
+    <span>4 · Normalización posicional</span>
+    <span>5 · Validación por patrón y dígito de verificación</span>
+    <span>6 · Votación ponderada</span>
+    <span>7 · Sin consenso: pedir otra imagen</span>
+  </div>
+
+  <h2>Lecturas reales</h2>
+  <p class="aviso" id="motores"></p>
+  <div class="galeria" id="galeria"></div>
+  <section class="detalle" id="detalle" aria-live="polite"></section>
+
+  <section id="seccion-evaluacion" hidden>
+    <h2>Banco de evaluación</h2>
+    <p class="aviso" id="evaluacion-resumen"></p>
+    <div class="tabla"><table id="tabla-evaluacion">
+      <thead><tr><th>Capa</th><th>Configuración</th><th class="num">Acierto</th><th></th>
+        <th class="num">Error silencioso</th><th class="num">Sin respuesta</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <footer>
+    Código fuente y documentación:
+    <a href="https://github.com/DarwinMontiel/vigia-ocr">github.com/DarwinMontiel/vigia-ocr</a>.
+    Esta página se generó con las lecturas reales de la cadena OCR al construir el sitio.
+  </footer>
+</main>
+<script>
+const DATOS = /*__DATOS__*/null;
+const pct = v => (100 * v).toFixed(1).replace(".", ",") + " %";
+const el = (etiqueta, props = {}, ...hijos) => {
+  const nodo = Object.assign(document.createElement(etiqueta), props);
+  for (const h of hijos) nodo.append(h);
+  return nodo;
+};
+
+function etiquetaResultado(caso) {
+  if (!caso.codigo) return el("span", { className: "etiqueta aviso", textContent: "Sin consenso: pide otra imagen" });
+  if (caso.codigo === caso.verdadero) return el("span", { className: "etiqueta ok", textContent: "Correcto" });
+  return el("span", { className: "etiqueta mal", textContent: "Incorrecto" });
+}
+
+function mostrar(indice) {
+  const caso = DATOS.casos[indice];
+  document.querySelectorAll(".miniatura").forEach((b, i) => b.setAttribute("aria-pressed", String(i === indice)));
+  const detalle = document.getElementById("detalle");
+  detalle.replaceChildren();
+
+  const info = el("div", {},
+    el("div", { className: "aviso", textContent: caso.radicado + " · " + caso.demandado }),
+    el("div", { className: "veredicto", textContent: caso.codigo || "········" }),
+    el("div", { textContent: (caso.estado || "Estado no determinado") + " · método " + caso.metodo + " · confianza " + pct(caso.confianza) }),
+    el("div", { className: "aviso", textContent: "Código real: " + caso.verdadero + " " }, etiquetaResultado(caso)),
+    el("p", { className: "aviso", textContent: "Nota del expediente: " + caso.nota }),
+  );
+  detalle.append(el("div", { className: "cabecera" },
+    el("img", { src: caso.imagen, alt: "Imagen tal como la publica el portal", width: 240, height: 72 }), info));
+
+  const etapas = el("div", { className: "etapas" });
+  for (const etapa of caso.etapas) {
+    etapas.append(el("figure", {}, el("img", { src: etapa.imagen, alt: "Variante " + etapa.variante, loading: "lazy" }),
+      el("figcaption", { textContent: etapa.variante })));
+  }
+  detalle.append(el("h3", { textContent: "Variantes de preprocesado" }), etapas);
+
+  const cuerpo = el("tbody");
+  for (const l of caso.lecturas) {
+    cuerpo.append(el("tr", {},
+      el("td", { textContent: l.motor }), el("td", { className: "mono", textContent: l.variante }),
+      el("td", { className: "mono", textContent: JSON.stringify(l.crudo) }),
+      el("td", { className: "mono", textContent: l.normalizado }),
+      el("td", {}, el("span", { className: "etiqueta " + (l.valido ? "ok" : "mal"), textContent: l.valido ? "válido" : "descartado" }))));
+  }
+  detalle.append(el("h3", { textContent: "Lecturas de cada motor" }),
+    el("div", { className: "tabla" }, el("table", {},
+      el("thead", {}, el("tr", {}, ...["Motor", "Variante", "Texto leído", "Normalizado", "Validación"].map(t => el("th", { textContent: t })))),
+      cuerpo)));
+}
+
+function evaluacion() {
+  const ev = DATOS.evaluacion;
+  if (!ev) return;
+  document.getElementById("seccion-evaluacion").hidden = false;
+  document.getElementById("evaluacion-resumen").textContent =
+    ev.cantidad + " imágenes sintéticas (semilla " + ev.semilla + "), motores: " + ev.motores.join(", ") +
+    (ev.motores_omitidos.length ? " · omitidos: " + ev.motores_omitidos.join(", ") : "");
+  const cuerpo = document.querySelector("#tabla-evaluacion tbody");
+  for (const f of ev.filas) {
+    const barra = el("div", { className: "barra" }, el("i"));
+    barra.firstChild.style.width = (100 * f.acierto).toFixed(1) + "%";
+    cuerpo.append(el("tr", {},
+      el("td", { textContent: f.grupo }), el("td", { textContent: f.configuracion }),
+      el("td", { className: "num", textContent: pct(f.acierto) }), el("td", {}, barra),
+      el("td", { className: "num", textContent: pct(f.error_silencioso) }),
+      el("td", { className: "num", textContent: pct(f.sin_respuesta_pct) })));
+  }
+}
+
+document.getElementById("motores").textContent =
+  "Motores usados al construir esta página: " + DATOS.motores.join(", ") + ". Toca una imagen para ver cómo se leyó.";
+const galeria = document.getElementById("galeria");
+DATOS.casos.forEach((caso, i) => {
+  const boton = el("button", { className: "miniatura", type: "button" },
+    el("img", { src: caso.imagen, alt: "Caso " + (i + 1), width: 240, height: 72 }),
+    el("small", { textContent: (caso.codigo || "sin consenso") + (caso.codigo === caso.verdadero ? " ✓" : caso.codigo ? " ✗" : "") }));
+  boton.addEventListener("click", () => mostrar(i));
+  galeria.append(boton);
+});
+mostrar(0);
+evaluacion();
+</script>
+</body>
+</html>
