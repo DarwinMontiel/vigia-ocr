@@ -1,0 +1,19 @@
+name: Nueva funcionalidad
+description: Proponer un motor OCR, una variante de preprocesado o una mejora
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema u oportunidad
+      description: ¿Qué proceso manual o dolor operativo resuelve?
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Propuesta
+    validations: { required: true }
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas

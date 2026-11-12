@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  calidad:
+    name: Lint · Tipos · Unitarias (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      # Sin motores OCR: las unitarias usan dobles y deben correr en cualquier máquina.
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy src
+      - run: pytest --cov --cov-report=term --cov-report=xml
+      - uses: actions/upload-artifact@v7
+        if: matrix.python == '3.13'
+        with:
+          name: cobertura
+          path: coverage.xml
+
+  ocr:
+    name: OCR real · ddddocr + Tesseract
+    runs-on: ubuntu-latest
+    needs: calidad
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Instalar Tesseract
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
+      - run: pip install -e ".[ocr,dev]"
+      - run: pytest -m ocr -v
+      - name: Banco de evaluación (motores livianos)
+        run: |
+          vigia evaluar --cantidad 200 --motores ddddocr,tesseract --salida evaluacion-ci/evaluacion.md
+          cat evaluacion-ci/evaluacion.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: evaluacion-ocr
+          path: evaluacion-ci/
+
+  e2e:
+    name: E2E · Selenium + Chrome contra el portal ficticio
+    runs-on: ubuntu-latest
+    needs: calidad
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Instalar Tesseract
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
+      - run: pip install -e ".[ocr,dev]"
+      # Chrome ya viene en la imagen ubuntu-latest; Selenium Manager resuelve chromedriver.
+      - run: pytest -m e2e -v
+
+  sqlserver:
+    name: Integración · SQL Server 2022
+    runs-on: ubuntu-latest
+    needs: calidad
+    # La imagen de SQL Server y el ODBC Driver exigen aceptar la licencia de Microsoft. El job
+    # solo corre si el dueño del repositorio la acepta creando la variable MSSQL_ACEPTO_EULA=Y
+    # (Settings → Secrets and variables → Actions → Variables).
+    if: vars.MSSQL_ACEPTO_EULA == 'Y'
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: ${{ vars.MSSQL_ACEPTO_EULA }}
+          MSSQL_SA_PASSWORD: Vigia-Pruebas-2026!
+          MSSQL_PID: Developer
+        ports: ["1433:1433"]
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Vigia-Pruebas-2026!' -Q 'SELECT 1'"
+          --health-interval 10s --health-retries 12
+    env:
+      VIGIA_PRUEBAS_SQLSERVER_URL: "mssql+pyodbc://sa:Vigia-Pruebas-2026!@localhost:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: ODBC Driver 18 for SQL Server
+        env:
+          ACCEPT_EULA: ${{ vars.MSSQL_ACEPTO_EULA }}
+        run: |
+          if ! odbcinst -q -d | grep -q "ODBC Driver 18"; then
+            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft.gpg
+            echo "deb [signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/$(lsb_release -rs)/prod $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+            sudo apt-get update && sudo -E apt-get install -y msodbcsql18 unixodbc-dev
+          fi
+      - run: pip install -e ".[sqlserver,dev]"
+      - run: pytest -m sqlserver -v
+
+  docker:
+    name: Imagen Docker
+    runs-on: ubuntu-latest
+    needs: calidad
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: vigia-ocr:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Prueba de humo
+        run: |
+          docker run --rm vigia-ocr:ci --version
+          docker run --rm vigia-ocr:ci evaluar --cantidad 20 --motores ddddocr,tesseract --salida /tmp/ev.md

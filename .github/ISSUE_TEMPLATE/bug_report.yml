@@ -1,0 +1,36 @@
+name: Reporte de error
+description: Algo no funciona como se espera
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: ¿Qué pasó?
+      description: Comportamiento observado y comportamiento esperado.
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      placeholder: "1. make portal\n2. vigia consultar datos/radicados_demo.csv\n3. ..."
+    validations: { required: true }
+  - type: input
+    id: radicado
+    attributes:
+      label: Radicado afectado (si aplica)
+  - type: textarea
+    id: lectura
+    attributes:
+      label: Salida de `vigia leer` sobre la imagen (si es un problema de OCR)
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs relevantes
+      render: json
+  - type: dropdown
+    id: env
+    attributes:
+      label: Entorno
+      options: [Docker, Linux, Windows]
+    validations: { required: true }

@@ -1,0 +1,45 @@
+# Portal ficticio + bot. SQL Server es opcional (perfil "sqlserver").
+#
+#   docker compose up --build portal bot                  # demo con SQLite dentro del contenedor
+#   MSSQL_ACEPTO_EULA=Y MSSQL_SA_PASSWORD='...' docker compose --profile sqlserver up -d
+#
+# La imagen oficial de SQL Server exige aceptar la licencia de Microsoft. Por eso no se
+# acepta aquí por ti: debes definir MSSQL_ACEPTO_EULA=Y de forma explícita.
+
+name: vigia-ocr
+
+services:
+  portal:
+    build: .
+    command: ["portal", "--host", "0.0.0.0", "--puerto", "8000", "--tasa-fallos", "0.05"]
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/salud')"]
+      interval: 5s
+      retries: 10
+
+  bot:
+    build: .
+    command: ["consultar", "datos/radicados_demo.csv"]
+    environment:
+      VIGIA_PORTAL_URL: http://portal:8000
+      VIGIA_BASE_DATOS_URL: ${VIGIA_BASE_DATOS_URL:-sqlite:////tmp/vigia.db}
+      VIGIA_MOTORES: ddddocr,tesseract
+      VIGIA_LOG_FORMATO: consola
+    depends_on:
+      portal:
+        condition: service_healthy
+
+  sqlserver:
+    profiles: ["sqlserver"]
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: ${MSSQL_ACEPTO_EULA:?Define MSSQL_ACEPTO_EULA=Y si aceptas la licencia de SQL Server}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Define MSSQL_SA_PASSWORD (mínimo 8 caracteres, con mayúsculas, números y símbolos)}
+      MSSQL_PID: Developer
+    ports: ["1433:1433"]
+    volumes:
+      - sqlserver-datos:/var/opt/mssql
+
+volumes:
+  sqlserver-datos:
