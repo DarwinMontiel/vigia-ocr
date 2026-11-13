@@ -21,3 +21,9 @@ updates:
     commit-message: { prefix: "build(docker)" }
     groups:
       imagen-base: { patterns: ["*"] }
+    ignore:
+      # La versión de Python de la imagen sigue a la matriz del CI (3.11-3.13). Los motores OCR
+      # (ddddocr y onnxruntime) publican ruedas para una versión nueva de Python meses después
+      # de su lanzamiento; el salto se hace a mano cuando existan.
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
