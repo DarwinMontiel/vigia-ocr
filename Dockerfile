@@ -7,7 +7,7 @@
 #   docker run --rm vigia-ocr --help
 #   docker run --rm -v "$PWD/docs:/app/docs" vigia-ocr:completo evaluar --cantidad 300
 
-FROM python:3.13-slim AS base
+FROM python:3.15-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
