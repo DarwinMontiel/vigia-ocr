@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11%20·%203.12%20·%203.13-3776AB?logo=python&logoColor=white)
 ![Selenium](https://img.shields.io/badge/Selenium-43B02A?logo=selenium&logoColor=white)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-CC2927?logo=microsoftsqlserver&logoColor=white)
-[![Licencia MIT](https://img.shields.io/badge/licencia-MIT-0d9488)](LICENSE)
+[![Licencia MIT](https://img.shields.io/badge/licencia-MIT-1d3a6b)](LICENSE)
 
 **Bot RPA que consulta un portal público donde el estado de cada proceso se publica como imagen
 ruidosa, la lee con varios motores OCR, vota, valida un dígito de verificación y guarda el

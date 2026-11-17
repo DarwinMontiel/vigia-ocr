@@ -76,6 +76,11 @@ def capturas(destino: Path) -> None:
             time.sleep(0.1)
 
     driver = crear_chrome(headless=True)
+    # Tema claro siempre (la hoja de papel de la demo), sin importar el tema del sistema operativo.
+    driver.execute_cdp_cmd(
+        "Emulation.setEmulatedMedia",
+        {"features": [{"name": "prefers-color-scheme", "value": "light"}]},
+    )
     try:
         driver.set_window_size(1100, 760)
         driver.get(f"{url}/consulta?radicado={catalogo.EXPEDIENTES[0].radicado}")
