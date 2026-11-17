@@ -5,71 +5,106 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Vigía OCR · demo</title>
 <meta name="description" content="Demo de Vigía OCR: lecturas reales de una cadena OCR con preprocesado, varios motores y votación.">
+<meta name="theme-color" content="#f6f1e4">
 <style>
+/* Vigía OCR · identidad visual propia: papel y tinta de expediente judicial.
+   Hoja crema, tinta azul negra y sellos en rojo; títulos con serifa y códigos en
+   máquina de escribir. Contraste de texto verificado (WCAG AA) en ambos temas. */
 :root{
-  --fondo:#f7f5f0;--superficie:#ffffff;--tinta:#1d2430;--suave:#5d6776;--borde:#e2ddd3;
-  --marca:#0f766e;--marca-suave:#d5efec;--ok:#15803d;--mal:#b42318;--aviso:#a15c07;
-  --barra:#0f766e;--barra-fondo:#ebe7df;
+  --fondo:#f6f1e4;--superficie:#fffdf7;--tinta:#1b2433;--suave:#5b5446;--borde:#ddd3bf;
+  --marca:#1d3a6b;--paso:#efe7d4;--sello:#a3261d;--ok:#2f6b2f;--mal:#a3261d;--aviso:#8a5200;
+  --barra:#1d3a6b;--barra-fondo:#e6dcc6;
+  --serif:Charter,"Bitstream Charter","Sitka Text",Cambria,"Iowan Old Style",Georgia,serif;
+  --maquina:"Courier Prime","Courier New",Courier,"Cascadia Mono",monospace;
+  --sombra:0 1px 0 rgb(27 36 51 / 6%),0 6px 16px rgb(27 36 51 / 7%);
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --fondo:#11151b;--superficie:#181e26;--tinta:#e7ebf0;--suave:#9aa5b4;--borde:#2a323d;
-  --marca:#2dd4bf;--marca-suave:#123b38;--ok:#4ade80;--mal:#f87171;--aviso:#fbbf24;
-  --barra:#2dd4bf;--barra-fondo:#252d38;
+  --fondo:#12141a;--superficie:#1a1d25;--tinta:#ece6d6;--suave:#b0a690;--borde:#2d313b;
+  --marca:#9db7e8;--paso:#23262f;--sello:#ff8a7a;--ok:#8fd18f;--mal:#ff8a7a;--aviso:#f0b35a;
+  --barra:#9db7e8;--barra-fondo:#2d313b;
+  --sombra:0 1px 0 rgb(0 0 0 / 40%),0 8px 20px rgb(0 0 0 / 35%);
 }}
 :root[data-theme="dark"]{
-  --fondo:#11151b;--superficie:#181e26;--tinta:#e7ebf0;--suave:#9aa5b4;--borde:#2a323d;
-  --marca:#2dd4bf;--marca-suave:#123b38;--ok:#4ade80;--mal:#f87171;--aviso:#fbbf24;
-  --barra:#2dd4bf;--barra-fondo:#252d38;
+  --fondo:#12141a;--superficie:#1a1d25;--tinta:#ece6d6;--suave:#b0a690;--borde:#2d313b;
+  --marca:#9db7e8;--paso:#23262f;--sello:#ff8a7a;--ok:#8fd18f;--mal:#ff8a7a;--aviso:#f0b35a;
+  --barra:#9db7e8;--barra-fondo:#2d313b;
+  --sombra:0 1px 0 rgb(0 0 0 / 40%),0 8px 20px rgb(0 0 0 / 35%);
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--fondo);color:var(--tinta);
-  font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-main{max-width:1040px;margin:0 auto;padding:32px 16px 64px}
-h1{font-size:clamp(28px,5vw,40px);margin:0 0 8px;letter-spacing:-.02em}
-h2{font-size:22px;margin:48px 0 12px}
+body{margin:0;background:var(--fondo);color:var(--tinta);font:17px/1.6 var(--serif)}
+main{max-width:1040px;margin:0 auto;padding:40px 16px 64px}
+:focus-visible{outline:2px solid var(--sello);outline-offset:2px}
+/* Membrete del expediente, con su sello. */
+.membrete{position:relative;padding-bottom:18px;border-bottom:3px double var(--borde)}
+.rotulo{margin:0 0 6px;font-size:12.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--suave)}
+h1{font:700 clamp(34px,6vw,50px)/1.05 var(--serif);margin:0 0 12px;color:var(--marca)}
+h2{font:700 24px/1.25 var(--serif);margin:52px 0 14px;display:flex;align-items:baseline;gap:14px}
+h2::after{content:"";flex:1;border-bottom:1px solid var(--borde)}
+h3{font:700 18px/1.3 var(--serif);margin:22px 0 8px}
 p{margin:0 0 12px}
-.lema{font-size:18px;color:var(--suave);max-width:70ch}
-.historia{background:var(--superficie);border:1px solid var(--borde);border-left:4px solid var(--marca);
-  border-radius:10px;padding:16px 20px;margin-top:20px;max-width:80ch}
-.aviso{font-size:13px;color:var(--suave)}
-.cadena{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
-.cadena span{background:var(--marca-suave);color:var(--tinta);border-radius:999px;padding:4px 12px;font-size:14px}
-.galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
-.miniatura{background:var(--superficie);border:2px solid var(--borde);border-radius:8px;padding:6px;
-  cursor:pointer;text-align:left;color:inherit;font:inherit}
-.miniatura img{width:100%;height:auto;display:block;border-radius:4px;image-rendering:auto}
-.miniatura small{display:block;margin-top:4px;color:var(--suave);font-size:12px}
-.miniatura[aria-pressed="true"]{border-color:var(--marca)}
-.detalle{background:var(--superficie);border:1px solid var(--borde);border-radius:12px;padding:20px;margin-top:16px}
-.cabecera{display:flex;flex-wrap:wrap;gap:20px;align-items:center}
-.cabecera img{width:min(360px,100%);border:1px solid var(--borde);border-radius:6px}
-.veredicto{font-family:ui-monospace,Consolas,monospace;font-size:28px;font-weight:700;letter-spacing:.08em}
-.etiqueta{display:inline-block;border-radius:6px;padding:2px 8px;font-size:13px;font-weight:600}
-.etiqueta.ok{color:var(--ok);border:1px solid var(--ok)}
-.etiqueta.mal{color:var(--mal);border:1px solid var(--mal)}
-.etiqueta.aviso{color:var(--aviso);border:1px solid var(--aviso)}
-.etapas{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:16px 0}
+.lema{font-size:19px;font-style:italic;color:var(--suave);max-width:64ch}
+.sello{position:absolute;top:6px;right:4px;transform:rotate(-8deg);border:3px double var(--sello);border-radius:8px;
+  padding:6px 14px;color:var(--sello);font:700 15px/1.2 var(--maquina);letter-spacing:.16em;text-transform:uppercase;text-align:center}
+.sello small{display:block;font-size:11px;letter-spacing:.06em;text-transform:none}
+/* Nota del expediente: hoja con margen rojo. */
+.historia{background:linear-gradient(90deg,transparent 40px,var(--sello) 40px 41px,transparent 41px),var(--superficie);
+  border:1px solid var(--borde);border-radius:2px;padding:16px 22px 14px 60px;margin-top:24px;max-width:80ch;box-shadow:var(--sombra)}
+.aviso{font-size:14px;color:var(--suave)}
+.cadena{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:14px 0}
+.cadena span{background:var(--superficie);border:1px solid var(--borde);border-top:3px solid var(--marca);border-radius:2px;
+  padding:10px 12px;font-size:15.5px;line-height:1.4;box-shadow:var(--sombra)}
+/* Las miniaturas son fichas sobre el escritorio. */
+.galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px}
+.miniatura{background:var(--superficie);border:1px solid var(--borde);border-radius:2px;padding:8px 8px 6px;
+  cursor:pointer;text-align:left;color:inherit;font:inherit;box-shadow:var(--sombra);transition:transform .15s}
+.miniatura:nth-child(odd){transform:rotate(-.7deg)}
+.miniatura:nth-child(even){transform:rotate(.6deg)}
+.miniatura:hover,.miniatura:focus-visible{transform:none}
+.miniatura img{width:100%;height:auto;display:block;border-radius:1px;image-rendering:auto}
+.miniatura small{display:block;margin-top:6px;color:var(--suave);font:13px/1.3 var(--maquina)}
+.miniatura[aria-pressed="true"]{outline:3px solid var(--sello);outline-offset:2px;transform:none}
+.detalle{background:var(--superficie);border:1px solid var(--borde);border-top:4px solid var(--marca);border-radius:2px;
+  padding:22px 24px;margin-top:22px;box-shadow:var(--sombra)}
+.cabecera{display:flex;flex-wrap:wrap;gap:22px;align-items:center}
+.cabecera img{width:min(360px,100%);border:1px solid var(--borde);border-radius:1px;background:#fff;padding:4px}
+.veredicto{display:inline-block;margin:4px 0;padding:2px 6px;border-bottom:2px dashed var(--borde);
+  font:700 30px/1.2 var(--maquina);letter-spacing:.14em}
+.etiqueta{display:inline-block;padding:1px 8px;border:2px solid currentColor;border-radius:3px;transform:rotate(-2deg);
+  font:700 12px/1.6 var(--maquina);letter-spacing:.1em;text-transform:uppercase}
+.etiqueta.ok{color:var(--ok)}
+.etiqueta.mal{color:var(--mal)}
+.etiqueta.aviso{color:var(--aviso)}
+.etapas{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin:16px 0}
 .etapas figure{margin:0}
-.etapas img{width:100%;border:1px solid var(--borde);border-radius:4px;background:#fff}
-.etapas figcaption{font-size:12px;color:var(--suave);font-family:ui-monospace,Consolas,monospace}
+.etapas img{width:100%;border:1px solid var(--borde);border-radius:1px;background:#fff}
+.etapas figcaption{margin-top:4px;font:12.5px/1.4 var(--maquina);color:var(--suave)}
 .tabla{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:14px}
-th,td{padding:6px 10px;border-bottom:1px solid var(--borde);text-align:left;white-space:nowrap}
-th{color:var(--suave);font-weight:600}
-td.mono{font-family:ui-monospace,Consolas,monospace}
-.barra{background:var(--barra-fondo);border-radius:4px;height:10px;min-width:120px;position:relative}
-.barra i{position:absolute;inset:0 auto 0 0;background:var(--barra);border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--borde);text-align:left;white-space:nowrap}
+th{color:var(--suave);font-weight:700;font-variant:small-caps;letter-spacing:.06em;border-bottom:2px solid var(--tinta)}
+td.mono{font-family:var(--maquina);font-size:14px}
+.barra{background:var(--barra-fondo);height:10px;min-width:120px;position:relative}
+.barra i{position:absolute;inset:0 auto 0 0;background:var(--barra)}
 .num{font-variant-numeric:tabular-nums;text-align:right}
-footer{margin-top:56px;color:var(--suave);font-size:14px}
+footer{margin-top:60px;padding-top:14px;border-top:3px double var(--borde);color:var(--suave);font-size:15px}
 a{color:var(--marca)}
+@media (max-width:640px){
+  .sello{position:static;display:inline-block;margin:0 0 12px;transform:rotate(-4deg)}
+  h2{font-size:21px}
+}
+@media (prefers-reduced-motion:reduce){.miniatura{transition:none}}
 </style>
 </head>
 <body>
 <main>
-  <h1>Vigía OCR</h1>
-  <p class="lema">Un bot RPA que consulta un portal público donde el estado de cada proceso se
-    publica como <strong>imagen ruidosa</strong>, la lee con varios motores OCR, vota, valida el
-    dígito de verificación y guarda el resultado en SQL Server.</p>
+  <header class="membrete">
+    <p class="rotulo">Expediente de lectura · bot RPA con OCR</p>
+    <h1>Vigía OCR</h1>
+    <p class="lema">Un bot RPA que consulta un portal público donde el estado de cada proceso se
+      publica como <strong>imagen ruidosa</strong>, la lee con varios motores OCR, vota, valida el
+      dígito de verificación y guarda el resultado en SQL Server.</p>
+    <div class="sello" aria-hidden="true">Leído<small>06:00 a. m.</small></div>
+  </header>
 
   <div class="historia">
     <p>Cada mañana, Marta Lucía, analista de la <em>Cooperativa La Alcancía de Puerto
