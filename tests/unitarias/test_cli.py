@@ -6,6 +6,7 @@ import json
 from collections.abc import Iterator
 from pathlib import Path
 from types import TracebackType
+from typing import Any
 
 import pytest
 from PIL import Image
@@ -187,3 +188,40 @@ def test_demo_web(tmp_path: Path) -> None:
     assert '"cantidad": 1' in html
     # Imagen original + una por variante configurada (VIGIA_VARIANTES=original).
     assert len(list((tmp_path / "site" / "img").glob("caso00*.png"))) == 2
+
+
+def _datos_demo(html: str) -> dict[str, Any]:
+    inicio = html.index("const DATOS = ") + len("const DATOS = ")
+    fin = html.index(";\nconst pct")
+    datos: dict[str, Any] = json.loads(html[inicio:fin].replace("<\\/", "</"))
+    return datos
+
+
+@pytest.mark.usefixtures("motores_falsos")
+def test_demo_web_cada_caso_lleva_el_codigo_de_su_expediente(tmp_path: Path) -> None:
+    """El radicado, la nota y el código de la imagen deben contar la misma historia."""
+    resultado = runner.invoke(
+        cli.app,
+        ["demo-web", "--salida", str(tmp_path / "site"), "--cantidad", "3",
+         "--motores", " ddddocr ", "--evaluacion", str(tmp_path / "no-existe.json")],
+    )  # fmt: skip
+    assert resultado.exit_code == 0, resultado.output
+    datos = _datos_demo((tmp_path / "site" / "index.html").read_text(encoding="utf-8"))
+    assert len(datos["casos"]) == 3
+    for caso in datos["casos"]:
+        assert caso["verdadero"] == catalogo.POR_RADICADO[caso["radicado"]].codigo
+
+
+def test_demo_web_motor_desconocido_es_error_de_parametro(tmp_path: Path) -> None:
+    resultado = runner.invoke(
+        cli.app, ["demo-web", "--salida", str(tmp_path / "site"), "--motores", "magia"]
+    )
+    assert resultado.exit_code == 2
+    assert "magia" in resultado.output
+
+
+def test_consultar_con_fecha_invalida_es_error_de_parametro(tmp_path: Path) -> None:
+    archivo = escribir_csv(tmp_path / "lote.csv", ["PCA-2026-00017,x"])
+    resultado = runner.invoke(cli.app, ["consultar", str(archivo), "--fecha-corte", "12/11/2026"])
+    assert resultado.exit_code == 2
+    assert "AAAA-MM-DD" in resultado.output

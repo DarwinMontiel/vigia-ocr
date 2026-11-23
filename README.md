@@ -96,6 +96,7 @@ python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\act
 make install                       # paquete + ddddocr y Tesseract + herramientas
 vigia portal &                     # portal ficticio en http://127.0.0.1:8000
 vigia consultar datos/radicados_demo.csv   # el bot consulta el lote y guarda en SQLite
+vigia muestras                     # genera 12 imágenes sintéticas en muestras/
 vigia leer muestras/*.png          # lee imágenes sueltas y muestra el voto de cada motor
 ```
 
@@ -113,7 +114,7 @@ en [`sql/001_esquema.sql`](sql/001_esquema.sql).
 
 | Comando | Qué cubre |
 |---|---|
-| `make test` | 148 pruebas unitarias con dobles: dominio, votación, circuit breaker, repositorios, CLI y arquitectura |
+| `make test` | 151 pruebas unitarias con dobles: dominio, votación, circuit breaker, repositorios, CLI y arquitectura |
 | `make test-ocr` | Motores reales (ddddocr y Tesseract) |
 | `make e2e` | El bot real con Selenium + Chrome contra el portal ficticio |
 | `make test-sqlserver` | Repositorio contra SQL Server 2022 |

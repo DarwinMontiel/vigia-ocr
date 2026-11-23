@@ -95,6 +95,7 @@ def test_sqlite_tiene_claves_foraneas_activas(tmp_path: Path) -> None:
     motor = crear_motor_bd(f"sqlite:///{tmp_path / 'fk.db'}")
     with motor.connect() as conexion:
         assert conexion.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
+    motor.dispose()
 
 
 def test_el_modelo_compila_para_sql_server() -> None:

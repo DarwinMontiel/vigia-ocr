@@ -12,6 +12,7 @@ from typing import Annotated
 import structlog
 import typer
 from PIL import Image
+from pydantic import ValidationError
 
 from vigia_ocr import __version__
 from vigia_ocr.config import Configuracion, obtener_configuracion
@@ -99,23 +100,31 @@ def consultar(
     )
 
     config = _config()
-    corte = date.fromisoformat(fecha_corte) if fecha_corte else date.today()
+    try:
+        corte = date.fromisoformat(fecha_corte) if fecha_corte else date.today()
+    except ValueError as error:
+        raise typer.BadParameter(
+            f"{fecha_corte!r} no es una fecha AAAA-MM-DD", param_hint="--fecha-corte"
+        ) from error
     radicados = leer_radicados(archivo)
-    repositorio = crear_repositorio_sql(config)
     lector = crear_lector(config)
+    repositorio = crear_repositorio_sql(config)
     log.info("Inicio del lote", radicados=len(radicados), fecha_corte=corte.isoformat())
 
-    with PortalSelenium(
-        portal_url or config.portal_url,
-        headless=config.navegador_headless,
-        espera_s=config.navegador_espera_s,
-        binario=config.navegador_binario,
-        chromedriver=config.chromedriver,
-    ) as navegador:
-        servicio = crear_servicio(
-            config, Dependencias(navegador, repositorio, lector, RelojSistema())
-        )
-        resumen = servicio.procesar_lote(radicados, corte)
+    try:
+        with PortalSelenium(
+            portal_url or config.portal_url,
+            headless=config.navegador_headless,
+            espera_s=config.navegador_espera_s,
+            binario=config.navegador_binario,
+            chromedriver=config.chromedriver,
+        ) as navegador:
+            servicio = crear_servicio(
+                config, Dependencias(navegador, repositorio, lector, RelojSistema())
+            )
+            resumen = servicio.procesar_lote(radicados, corte)
+    finally:
+        repositorio.cerrar()
 
     for resultado in resumen.resultados:
         guardado = resultado.resultado
@@ -219,7 +228,11 @@ def db_crear() -> None:
     from vigia_ocr.adaptadores.persistencia.sql import crear_esquema, crear_motor_bd
 
     config = _config()
-    crear_esquema(crear_motor_bd(config.base_datos_url))
+    motor = crear_motor_bd(config.base_datos_url)
+    try:
+        crear_esquema(motor)
+    finally:
+        motor.dispose()
     typer.echo(f"Esquema creado en {config.base_datos_url.split('@')[-1]}")
 
 
@@ -237,7 +250,11 @@ def demo_web(
     from vigia_ocr.demo_web.construir import construir_demo
 
     config = _config()
-    config_demo = config.model_copy(update={"motores": motores.split(",")})
+    # Se valida otra vez: ``model_copy`` no pasa por los validadores (nombres, espacios).
+    try:
+        config_demo = Configuracion.model_validate(config.model_dump() | {"motores": motores})
+    except ValidationError as error:
+        raise typer.BadParameter(str(error), param_hint="--motores") from error
     destino = construir_demo(
         salida, config_demo, cantidad=cantidad, semilla=semilla, evaluacion_json=evaluacion
     )

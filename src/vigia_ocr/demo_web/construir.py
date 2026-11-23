@@ -16,7 +16,7 @@ from vigia_ocr.aplicacion.lector import LectorConsenso
 from vigia_ocr.config import Configuracion
 from vigia_ocr.dominio.codigo import EstadoObligacion
 from vigia_ocr.portal_ficticio import catalogo
-from vigia_ocr.sintetico.generador import generar_lote
+from vigia_ocr.sintetico.generador import generar_lote, renderizar
 
 MARCADOR = "/*__DATOS__*/null"
 
@@ -40,18 +40,21 @@ def construir_demo(
     casos = []
     for indice, muestra in enumerate(generar_lote(cantidad, semilla)):
         expediente = catalogo.EXPEDIENTES[indice % len(catalogo.EXPEDIENTES)]
+        # La imagen lleva el código del expediente que se muestra al lado (radicado, nota),
+        # tal como lo publicaría el portal; del lote solo se toma la semilla del ruido.
+        imagen = renderizar(expediente.codigo, muestra.semilla)
         base = f"caso{indice:02d}"
-        muestra.imagen.save(imagenes / f"{base}.png")
+        imagen.save(imagenes / f"{base}.png")
         etapas = []
         for variante in variantes:
             archivo = f"{base}_{variante.nombre}.png"
-            variante.aplicar(muestra.imagen).save(imagenes / archivo)
+            variante.aplicar(imagen).save(imagenes / archivo)
             etapas.append({"variante": variante.nombre, "imagen": f"img/{archivo}"})
-        veredicto = lector.leer(muestra.imagen)
+        veredicto = lector.leer(imagen)
         casos.append(
             {
                 "imagen": f"img/{base}.png",
-                "verdadero": muestra.codigo,
+                "verdadero": expediente.codigo,
                 "radicado": expediente.radicado,
                 "demandado": expediente.demandado,
                 "nota": expediente.nota,

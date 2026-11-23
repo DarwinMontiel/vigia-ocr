@@ -103,7 +103,12 @@ def crear_esquema(motor: Engine) -> None:
 
 class RepositorioSQL:
     def __init__(self, motor: Engine) -> None:
+        self._motor = motor
         self._sesiones = sessionmaker(motor, expire_on_commit=False)
+
+    def cerrar(self) -> None:
+        """Cierra las conexiones del pool (al terminar el lote)."""
+        self._motor.dispose()
 
     def obtener(self, radicado: Radicado, fecha_corte: date) -> ResultadoConsulta | None:
         # Sesión nueva en cada lectura: la verificación tras guardar debe leer lo que de

@@ -31,8 +31,8 @@ class LectorConsenso:
     """Lee una imagen con todas las combinaciones (motor × variante) y decide por votación.
 
     Con ``parada_temprana`` deja de leer en cuanto ``min_acuerdo`` lecturas válidas coinciden
-    y no hay otro código válido compitiendo: en la mayoría de imágenes basta con los motores
-    rápidos y nunca se llega al lento.
+    y no hay otro código válido compitiendo: en las imágenes fáciles dos motores coinciden ya
+    en la primera variante y no se recorren todas las combinaciones.
     """
 
     def __init__(
